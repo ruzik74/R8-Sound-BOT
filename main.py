@@ -4,7 +4,10 @@ import yt_dlp
 import asyncio
 from collections import deque
 import time
-from server import run as run_web  # Импортируем функцию для Flask сервера
+import os  # Импортируем библиотеку os для работы с переменными окружения
+
+# Получаем токен бота из переменной окружения
+TOKEN = os.getenv('DISCORD_TOKEN')  # Это переменная окружения, которая хранит токен бота
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,17 +28,14 @@ now_playing = None
 volume = 0.5
 admin_roles = ["Admin"]  # Customize this with your server's admin roles
 
-
 def is_admin():
     async def predicate(ctx):
         return any(role.name in admin_roles for role in ctx.author.roles)
     return commands.check(predicate)
 
-
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name}')
-
 
 async def play_next(ctx):
     global now_playing
@@ -64,11 +64,9 @@ async def play_next(ctx):
     else:
         now_playing = None
 
-
 @bot.command()
 async def admin(ctx):
     await ctx.send("Admin roles: " + ", ".join(admin_roles))
-
 
 @bot.command()
 async def autoplay(ctx):
@@ -76,12 +74,10 @@ async def autoplay(ctx):
     autoplay = not autoplay
     await ctx.send(f"Autoplay is now {'enabled' if autoplay else 'disabled'}.")
 
-
 @bot.command()
 async def clear(ctx):
     queue.clear()
     await ctx.send("🗑️ Queue cleared.")
-
 
 @bot.command()
 async def disconnect(ctx):
@@ -90,27 +86,22 @@ async def disconnect(ctx):
         await ctx.voice_client.disconnect()
         await ctx.send("👋 Disconnected and cleared queue.")
 
-
 @bot.command()
 async def discover(ctx, *, tag=None):
     await ctx.send(f"🔍 Discovering music by tag: #{tag if tag else 'none'} (not implemented yet)")
-
 
 @bot.command()
 async def feed(ctx):
     await ctx.send("📰 Fetching your repost feed... (not implemented yet)")
 
-
-@bot.command(name='myhelp')  # Переименовали команду help
-async def myhelp(ctx):
+@bot.command()
+async def help(ctx):
     commands_list = [cmd.name for cmd in bot.commands]
     await ctx.send("📚 Available commands: " + ", ".join(commands_list))
-
 
 @bot.command()
 async def likes(ctx):
     await ctx.send("💖 Playing your liked tracks... (not implemented yet)")
-
 
 @bot.command()
 async def loop(ctx, mode=None):
@@ -119,12 +110,10 @@ async def loop(ctx, mode=None):
         loop_mode = mode
     await ctx.send(f"🔁 Loop mode is: {loop_mode}")
 
-
 @bot.command()
 async def next_up(ctx, *, url):
     queue.appendleft(url)
     await ctx.send("🎯 Added to top of queue.")
-
 
 @bot.command()
 async def now_playing(ctx):
@@ -136,18 +125,15 @@ async def now_playing(ctx):
     else:
         await ctx.send("🚫 Nothing is playing.")
 
-
 @bot.command()
 async def pause(ctx):
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.pause()
         await ctx.send("⏸️ Paused.")
 
-
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"🏓 Pong! {round(bot.latency * 1000)} ms")
-
 
 @bot.command()
 async def play(ctx, *, search):
@@ -160,11 +146,9 @@ async def play(ctx, *, search):
     if not ctx.voice_client.is_playing():
         await play_next(ctx)
 
-
 @bot.command()
 async def playlists(ctx):
     await ctx.send("📂 Your playlists (not implemented yet)")
-
 
 @bot.command(name="queue")
 async def queue_list(ctx):
@@ -175,7 +159,6 @@ async def queue_list(ctx):
     else:
         await ctx.send("🕳️ Queue is empty.")
 
-
 @bot.command()
 async def remove(ctx, index: int):
     try:
@@ -185,23 +168,19 @@ async def remove(ctx, index: int):
     except:
         await ctx.send("❌ Invalid track number.")
 
-
 @bot.command()
 async def resume(ctx):
     if ctx.voice_client and ctx.voice_client.is_paused():
         ctx.voice_client.resume()
         await ctx.send("▶️ Resumed.")
 
-
 @bot.command()
 async def search(ctx, *, term):
     await play(ctx, search=term)
 
-
 @bot.command()
 async def seek(ctx, seconds: int):
     await ctx.send("⏩ Seek is not implemented in this version.")
-
 
 @bot.command()
 async def shuffle(ctx):
@@ -209,28 +188,23 @@ async def shuffle(ctx):
     random.shuffle(queue)
     await ctx.send("🔀 Queue shuffled.")
 
-
 @bot.command()
 async def shut_up(ctx):
     await ctx.invoke(bot.get_command("stop"))
-
 
 @bot.command()
 async def sign_in(ctx):
     await ctx.send("🔐 Sign in (not implemented)")
 
-
 @bot.command()
 async def sign_out(ctx):
     await ctx.send("🚪 Signed out (not implemented)")
-
 
 @bot.command()
 async def skip(ctx):
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
         await ctx.send("⏭️ Skipped.")
-
 
 @bot.command()
 async def stop(ctx):
@@ -239,7 +213,6 @@ async def stop(ctx):
         ctx.voice_client.stop()
         await ctx.send("⛔ Stopped and cleared queue.")
 
-
 @bot.command()
 async def volume(ctx, value: int = None):
     global volume
@@ -247,17 +220,6 @@ async def volume(ctx, value: int = None):
         volume = min(max(value / 100, 0), 2.0)
     await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
 
-
-async def main():
-    # Запуск бота в фоновом потоке
-    bot_task = asyncio.create_task(bot.start('ТВОЙ_ТОКЕН_БОТА'))
-
-    # Запуск Flask сервера
-    web_task = asyncio.create_task(run_web())
-
-    # Ожидаем завершения обеих задач
-    await asyncio.gather(bot_task, web_task)
-
+# Запускаем бота
 if __name__ == "__main__":
-    # Запуск асинхронного главного процесса
-    asyncio.run(main())
+    bot.run(TOKEN)  # Используем токен из переменной окружения
