@@ -94,8 +94,9 @@ async def discover(ctx, *, tag=None):
 async def feed(ctx):
     await ctx.send("📰 Fetching your repost feed... (not implemented yet)")
 
-@bot.command()
-async def help(ctx):
+# Переименовали команду help в custom_help
+@bot.command(name="custom_help")
+async def custom_help(ctx):
     commands_list = [cmd.name for cmd in bot.commands]
     await ctx.send("📚 Available commands: " + ", ".join(commands_list))
 
@@ -220,6 +221,5 @@ async def volume(ctx, value: int = None):
         volume = min(max(value / 100, 0), 2.0)
     await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
 
-# Запускаем бота
-if __name__ == "__main__":
-    bot.run(TOKEN)  # Используем токен из переменной окружения
+# Используем токен из переменной окружения
+bot.run(TOKEN)
