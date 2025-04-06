@@ -3,18 +3,13 @@ from discord.ext import commands
 import yt_dlp
 import asyncio
 from collections import deque
-import time
-import os
-from flask import Flask
-from threading import Thread
 
-# Получаем токен бота из переменной окружения
-TOKEN = os.getenv('DISCORD_TOKEN')
-
+# Установка намерений (intents)
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
+# Опции для yt-dlp
 ydl_opts = {
     'format': 'bestaudio/best',
     'quiet': True,
@@ -23,32 +18,26 @@ ydl_opts = {
     'extract_flat': False,
 }
 
+# Очередь воспроизведения
 queue = deque()
 autoplay = False
 loop_mode = "off"  # "off", "track", "queue"
 now_playing = None
 volume = 0.5
-admin_roles = ["Admin"]  # Customize this with your server's admin roles
+admin_roles = ["Admin"]  # Роли администраторов
 
+# Проверка на роль администратора
 def is_admin():
     async def predicate(ctx):
         return any(role.name in admin_roles for role in ctx.author.roles)
     return commands.check(predicate)
 
-# Flask приложение для работы с веб-сервером
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
-
+# Событие, когда бот готов
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name}')
 
+# Обработка следующего трека
 async def play_next(ctx):
     global now_playing
     if loop_mode == "track" and now_playing:
@@ -76,22 +65,56 @@ async def play_next(ctx):
     else:
         now_playing = None
 
-# Переименовали команду help в custom_help
-@bot.command(name="custom_help")
-async def custom_help(ctx):
-    commands_list = [cmd.name for cmd in bot.commands]
-    await ctx.send("📚 Available commands: " + ", ".join(commands_list))
+# Команды бота
+@bot.command()
+async def autoplay(ctx):
+    global autoplay
+    autoplay = not autoplay
+    await ctx.send(f"Autoplay is now {'enabled' if autoplay else 'disabled'}.")
 
-# Другие команды остаются такими же
+@bot.command()
+async def clear(ctx):
+    queue.clear()
+    await ctx.send("🗑️ Queue cleared.")
 
-# Запускаем веб-сервер в отдельном потоке
-def run_discord_bot():
-    bot.run(TOKEN)
+@bot.command()
+async def disconnect(ctx):
+    queue.clear()
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Disconnected and cleared queue.")
 
-# Запуск
-if __name__ == "__main__":
-    t1 = Thread(target=run_flask)
-    t1.start()
+@bot.command()
+async def play(ctx, *, search):
+    if not ctx.voice_client:
+        await ctx.author.voice.channel.connect()
 
-    t2 = Thread(target=run_discord_bot)
-    t2.start()
+    queue.append(search)
+    await ctx.send("🎶 Added to queue.")
+
+    if not ctx.voice_client.is_playing():
+        await play_next(ctx)
+
+@bot.command()
+async def skip(ctx):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("⏭️ Skipped.")
+
+@bot.command()
+async def stop(ctx):
+    queue.clear()
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+        await ctx.send("⛔ Stopped and cleared queue.")
+
+@bot.command()
+async def volume(ctx, value: int = None):
+    global volume
+    if value is not None:
+        volume = min(max(value / 100, 0), 2.0)
+    await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
+
+# Запуск бота
+if __name__ == '__main__':
+    bot.run('YOUR_BOT_TOKEN')  # Замените на свой токен бота
