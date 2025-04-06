@@ -40,30 +40,33 @@ async def on_ready():
 # Обработка следующего трека
 async def play_next(ctx):
     global now_playing
-    if loop_mode == "track" and now_playing:
-        queue.appendleft(now_playing['webpage_url'])
+    try:
+        if loop_mode == "track" and now_playing:
+            queue.appendleft(now_playing['webpage_url'])
 
-    if loop_mode == "queue" and now_playing:
-        queue.append(now_playing['webpage_url'])
+        if loop_mode == "queue" and now_playing:
+            queue.append(now_playing['webpage_url'])
 
-    if queue:
-        url = queue.popleft()
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            stream_url = info['url']
-            now_playing = info
+        if queue:
+            url = queue.popleft()
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                stream_url = info['url']
+                now_playing = info
 
-        vc = ctx.voice_client
-        vc.play(discord.FFmpegPCMAudio(stream_url), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-        vc.source = discord.PCMVolumeTransformer(vc.source)
-        vc.source.volume = volume
+            vc = ctx.voice_client
+            vc.play(discord.FFmpegPCMAudio(stream_url), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+            vc.source = discord.PCMVolumeTransformer(vc.source)
+            vc.source.volume = volume
 
-        embed = discord.Embed(title="🎵 Now Playing", description=info['title'], color=discord.Color.orange())
-        embed.add_field(name="Link", value=info.get('webpage_url', url), inline=False)
-        embed.set_thumbnail(url=info.get('thumbnail', discord.Embed.Empty))
-        await ctx.send(embed=embed)
-    else:
-        now_playing = None
+            embed = discord.Embed(title="🎵 Now Playing", description=info['title'], color=discord.Color.orange())
+            embed.add_field(name="Link", value=info.get('webpage_url', url), inline=False)
+            embed.set_thumbnail(url=info.get('thumbnail', discord.Embed.Empty))
+            await ctx.send(embed=embed)
+        else:
+            now_playing = None
+    except Exception as e:
+        print(f"Error while playing next track: {e}")
 
 # Команды бота
 @bot.command()
@@ -86,35 +89,54 @@ async def disconnect(ctx):
 
 @bot.command()
 async def play(ctx, *, search):
-    if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
+    try:
+        if not ctx.voice_client:
+            await ctx.author.voice.channel.connect()
 
-    queue.append(search)
-    await ctx.send("🎶 Added to queue.")
+        queue.append(search)
+        await ctx.send("🎶 Added to queue.")
 
-    if not ctx.voice_client.is_playing():
-        await play_next(ctx)
+        if not ctx.voice_client.is_playing():
+            await play_next(ctx)
+    except Exception as e:
+        await ctx.send(f"Error while playing track: {e}")
+        print(f"Error while playing track: {e}")
 
 @bot.command()
 async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏭️ Skipped.")
+    try:
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+            await ctx.send("⏭️ Skipped.")
+    except Exception as e:
+        await ctx.send(f"Error while skipping track: {e}")
+        print(f"Error while skipping track: {e}")
 
 @bot.command()
 async def stop(ctx):
-    queue.clear()
-    if ctx.voice_client:
-        ctx.voice_client.stop()
-        await ctx.send("⛔ Stopped and cleared queue.")
+    try:
+        queue.clear()
+        if ctx.voice_client:
+            ctx.voice_client.stop()
+            await ctx.send("⛔ Stopped and cleared queue.")
+    except Exception as e:
+        await ctx.send(f"Error while stopping track: {e}")
+        print(f"Error while stopping track: {e}")
 
 @bot.command()
 async def volume(ctx, value: int = None):
     global volume
-    if value is not None:
-        volume = min(max(value / 100, 0), 2.0)
-    await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
+    try:
+        if value is not None:
+            volume = min(max(value / 100, 0), 2.0)
+        await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
+    except Exception as e:
+        await ctx.send(f"Error while changing volume: {e}")
+        print(f"Error while changing volume: {e}")
 
 # Запуск бота
 if __name__ == '__main__':
-    bot.run('YOUR_BOT_TOKEN')  # Замените на свой токен бота
+    try:
+        bot.run('YOUR_BOT_TOKEN')  # Замените на свой токен бота
+    except Exception as e:
+        print(f"Error while running bot: {e}")
