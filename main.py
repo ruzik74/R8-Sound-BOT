@@ -1,15 +1,10 @@
-import os
 import discord
 from discord.ext import commands
 import yt_dlp
 import asyncio
 from collections import deque
 import time
-from threading import Thread
-from server import run as run_web
-
-# Запуск веб-сервера для Render (пинг)
-Thread(target=run_web).start()
+from server import run as run_web  # Импортируем функцию для Flask сервера
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,10 +20,10 @@ ydl_opts = {
 
 queue = deque()
 autoplay = False
-loop_mode = "off"
+loop_mode = "off"  # "off", "track", "queue"
 now_playing = None
 volume = 0.5
-admin_roles = ["Admin"]
+admin_roles = ["Admin"]  # Customize this with your server's admin roles
 
 
 def is_admin():
@@ -253,9 +248,16 @@ async def volume(ctx, value: int = None):
     await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
 
 
-# Запуск бота
-TOKEN = os.getenv("DISCORD_TOKEN")
-if TOKEN:
-    bot.run(TOKEN)
-else:
-    print("❌ DISCORD_TOKEN is not set in environment variables!")
+async def main():
+    # Запуск бота в фоновом потоке
+    bot_task = asyncio.create_task(bot.start('ТВОЙ_ТОКЕН_БОТА'))
+
+    # Запуск Flask сервера
+    web_task = asyncio.create_task(run_web())
+
+    # Ожидаем завершения обеих задач
+    await asyncio.gather(bot_task, web_task)
+
+if __name__ == "__main__":
+    # Запуск асинхронного главного процесса
+    asyncio.run(main())
