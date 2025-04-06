@@ -101,8 +101,8 @@ async def feed(ctx):
     await ctx.send("📰 Fetching your repost feed... (not implemented yet)")
 
 
-@bot.command()
-async def help(ctx):
+@bot.command(name='myhelp')  # Переименовали команду help
+async def myhelp(ctx):
     commands_list = [cmd.name for cmd in bot.commands]
     await ctx.send("📚 Available commands: " + ", ".join(commands_list))
 
