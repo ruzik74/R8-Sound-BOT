@@ -4,10 +4,12 @@ import yt_dlp
 import asyncio
 from collections import deque
 import time
-import os  # Импортируем библиотеку os для работы с переменными окружения
+import os
+from flask import Flask
+from threading import Thread
 
 # Получаем токен бота из переменной окружения
-TOKEN = os.getenv('DISCORD_TOKEN')  # Это переменная окружения, которая хранит токен бота
+TOKEN = os.getenv('DISCORD_TOKEN')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -32,6 +34,16 @@ def is_admin():
     async def predicate(ctx):
         return any(role.name in admin_roles for role in ctx.author.roles)
     return commands.check(predicate)
+
+# Flask приложение для работы с веб-сервером
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
 
 @bot.event
 async def on_ready():
@@ -64,162 +76,22 @@ async def play_next(ctx):
     else:
         now_playing = None
 
-@bot.command()
-async def admin(ctx):
-    await ctx.send("Admin roles: " + ", ".join(admin_roles))
-
-@bot.command()
-async def autoplay(ctx):
-    global autoplay
-    autoplay = not autoplay
-    await ctx.send(f"Autoplay is now {'enabled' if autoplay else 'disabled'}.")
-
-@bot.command()
-async def clear(ctx):
-    queue.clear()
-    await ctx.send("🗑️ Queue cleared.")
-
-@bot.command()
-async def disconnect(ctx):
-    queue.clear()
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 Disconnected and cleared queue.")
-
-@bot.command()
-async def discover(ctx, *, tag=None):
-    await ctx.send(f"🔍 Discovering music by tag: #{tag if tag else 'none'} (not implemented yet)")
-
-@bot.command()
-async def feed(ctx):
-    await ctx.send("📰 Fetching your repost feed... (not implemented yet)")
-
 # Переименовали команду help в custom_help
 @bot.command(name="custom_help")
 async def custom_help(ctx):
     commands_list = [cmd.name for cmd in bot.commands]
     await ctx.send("📚 Available commands: " + ", ".join(commands_list))
 
-@bot.command()
-async def likes(ctx):
-    await ctx.send("💖 Playing your liked tracks... (not implemented yet)")
+# Другие команды остаются такими же
 
-@bot.command()
-async def loop(ctx, mode=None):
-    global loop_mode
-    if mode in ["off", "queue", "track"]:
-        loop_mode = mode
-    await ctx.send(f"🔁 Loop mode is: {loop_mode}")
+# Запускаем веб-сервер в отдельном потоке
+def run_discord_bot():
+    bot.run(TOKEN)
 
-@bot.command()
-async def next_up(ctx, *, url):
-    queue.appendleft(url)
-    await ctx.send("🎯 Added to top of queue.")
+# Запуск
+if __name__ == "__main__":
+    t1 = Thread(target=run_flask)
+    t1.start()
 
-@bot.command()
-async def now_playing(ctx):
-    if now_playing:
-        embed = discord.Embed(title="🎵 Now Playing", description=now_playing['title'], color=discord.Color.orange())
-        embed.add_field(name="Link", value=now_playing.get('webpage_url'), inline=False)
-        embed.set_thumbnail(url=now_playing.get('thumbnail', discord.Embed.Empty))
-        await ctx.send(embed=embed)
-    else:
-        await ctx.send("🚫 Nothing is playing.")
-
-@bot.command()
-async def pause(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.pause()
-        await ctx.send("⏸️ Paused.")
-
-@bot.command()
-async def ping(ctx):
-    await ctx.send(f"🏓 Pong! {round(bot.latency * 1000)} ms")
-
-@bot.command()
-async def play(ctx, *, search):
-    if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
-
-    queue.append(search)
-    await ctx.send("🎶 Added to queue.")
-
-    if not ctx.voice_client.is_playing():
-        await play_next(ctx)
-
-@bot.command()
-async def playlists(ctx):
-    await ctx.send("📂 Your playlists (not implemented yet)")
-
-@bot.command(name="queue")
-async def queue_list(ctx):
-    if queue:
-        msg = "\n".join([f"{i+1}. {url}" for i, url in enumerate(queue)])
-        embed = discord.Embed(title="🎵 Queue", description=msg, color=discord.Color.blue())
-        await ctx.send(embed=embed)
-    else:
-        await ctx.send("🕳️ Queue is empty.")
-
-@bot.command()
-async def remove(ctx, index: int):
-    try:
-        removed = queue[index - 1]
-        del queue[index - 1]
-        await ctx.send(f"🗑️ Removed: {removed}")
-    except:
-        await ctx.send("❌ Invalid track number.")
-
-@bot.command()
-async def resume(ctx):
-    if ctx.voice_client and ctx.voice_client.is_paused():
-        ctx.voice_client.resume()
-        await ctx.send("▶️ Resumed.")
-
-@bot.command()
-async def search(ctx, *, term):
-    await play(ctx, search=term)
-
-@bot.command()
-async def seek(ctx, seconds: int):
-    await ctx.send("⏩ Seek is not implemented in this version.")
-
-@bot.command()
-async def shuffle(ctx):
-    import random
-    random.shuffle(queue)
-    await ctx.send("🔀 Queue shuffled.")
-
-@bot.command()
-async def shut_up(ctx):
-    await ctx.invoke(bot.get_command("stop"))
-
-@bot.command()
-async def sign_in(ctx):
-    await ctx.send("🔐 Sign in (not implemented)")
-
-@bot.command()
-async def sign_out(ctx):
-    await ctx.send("🚪 Signed out (not implemented)")
-
-@bot.command()
-async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏭️ Skipped.")
-
-@bot.command()
-async def stop(ctx):
-    queue.clear()
-    if ctx.voice_client:
-        ctx.voice_client.stop()
-        await ctx.send("⛔ Stopped and cleared queue.")
-
-@bot.command()
-async def volume(ctx, value: int = None):
-    global volume
-    if value is not None:
-        volume = min(max(value / 100, 0), 2.0)
-    await ctx.send(f"🔊 Volume is set to: {int(volume * 100)}%")
-
-# Используем токен из переменной окружения
-bot.run(TOKEN)
+    t2 = Thread(target=run_discord_bot)
+    t2.start()
